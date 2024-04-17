@@ -3,11 +3,14 @@ from pydantic import BaseModel
 import json
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
-from fastapi import Response
 
 app = FastAPI()
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 404:
+            response = await super().get_response('.', scope)
+        return response
 
 app.add_middleware( 
     CORSMiddleware,
@@ -29,7 +32,7 @@ class Data(BaseModel):
 def add_person(data:Data):
     data_json = json.dumps(dict(data))
     with open ("data.json","a") as outfile:
-        outfile.write('\n'+data_json)
+        outfile.write(data_json+'\n')
     return data
 
 @app.get('/displayall')
@@ -40,3 +43,8 @@ async def display_all():
             person = json.loads(jsonObj)
             people.append(person)
     return people
+
+app.mount("/", StaticFiles(directory="staticfiles",html=True), name="static")
+@app.get("/")
+def read_root():
+    return {"Hello":"World"}
